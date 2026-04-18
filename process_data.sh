@@ -15,7 +15,7 @@
 #   --pdb_dir DIR         Directory containing PDB files (required for LRR annotation)
 #   --seq_file FILE       Protein sequence CSV file (required for FASTA conversion)
 #   --dataset NAME        Dataset name (e.g., SHS27k, SHS148k, Arabidopsis)
-#   --embedding_model MODEL  ESM model to use (esmc_600m, esmc_300m, esm3_small, esm2_650m, esm2_3b)
+#   --embedding_model MODEL  ESM model to use (default: esmc_600m)
 #   --output_dir DIR      Output directory (default: ./data)
 #   --skip_lrr            Skip LRR annotation generation
 #   --skip_fasta          Skip FASTA conversion
@@ -82,7 +82,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --pdb_dir DIR            Directory containing PDB files"
             echo "  --seq_file FILE          Protein sequence CSV file"
             echo "  --dataset NAME           Dataset name (SHS27k, SHS148k, etc.)"
-            echo "  --embedding_model MODEL  ESM model (esmc_600m, esmc_300m, esm3_small, esm2_650m, esm2_3b)"
+            echo "  --embedding_model MODEL  ESM model (default: esmc_600m)"
             echo "  --output_dir DIR         Output directory (default: ./data)"
             echo "  --skip_lrr               Skip LRR annotation generation"
             echo "  --skip_fasta             Skip FASTA conversion"

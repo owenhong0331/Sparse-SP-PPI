@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Cross-Dataset Inference Script for MAPE-PPI
+# Cross-Dataset Inference Script for Sparse-SP-PPI
 # Performs inference on a test dataset using a model trained on a different dataset
 # Supports: SYS30k->SYS60k, SHS27k->SHS148k, SHS148k->STRING, etc.
 
@@ -9,7 +9,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CACHE_ROOT="$PROJECT_ROOT/graphcache"
 
 # Default configurations
-PYTHON_SCRIPT="customer_inference.py"
+PYTHON_SCRIPT="inference.py"
 DATA_DIR="$PROJECT_ROOT/data"
 RESULTS_DIR="$PROJECT_ROOT/results"
 OUTPUT_DIR="$PROJECT_ROOT/cross_dataset_results"
@@ -18,7 +18,7 @@ OUTPUT_DIR="$PROJECT_ROOT/cross_dataset_results"
 ALL_DATASETS=("SHS27k" "SHS148k" "Arabidopsis" "rice" "STRING" "SYS30k" "SYS60k")
 
 # Available encoders
-ENCODERS=("mape" "esm2" "esm2_3b" "esm3_small" "esmc_300m" "esmc_600m" "precomputed")
+ENCODERS=("esmc_600m")
 
 # Available encoder types (standard, lrr, pep)
 ENCODER_TYPES=("standard" "lrr" "pep")
@@ -35,15 +35,15 @@ CROSS_DATASET_PAIRS=(
 
 # Show help
 show_help() {
-    echo "Cross-Dataset Inference Script for MAPE-PPI"
+    echo "Cross-Dataset Inference Script for Sparse-SP-PPI"
     echo ""
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
     echo "  --train_dataset DATASET     Training dataset name (e.g., SYS30k, SHS27k)"
     echo "  --test_dataset DATASET      Testing dataset name (e.g., SYS60k, SHS148k)"
-    echo "  --encoder ENCODER           Encoder type (default: precomputed)"
-    echo "  --encoder-type TYPE         Encoder type: standard, lrr, pep (default: standard)"
+    echo "  --encoder ENCODER           Encoder type (default: esmc_600m)"
+    echo "  --encoder-type TYPE         Encoder type: standard, lrr, pep (default: lrr)"
     echo "  --split SPLIT               Split method (default: random)"
     echo "  --run_all                   Run all predefined cross-dataset pairs"
     echo "  --list_pairs                List available cross-dataset pairs"
@@ -56,10 +56,7 @@ show_help() {
     echo "  $0 --train_dataset SYS30k --test_dataset SYS60k"
     echo ""
     echo "  # SHS27k -> SHS148k with LRR encoder"
-    echo "  $0 --train_dataset SHS27k --test_dataset SHS148k --encoder esmc_600m --encoder-type lrr --split dfs"
-    echo ""
-    echo "  # SYS30k -> SYS60k with LRR (matching your training command)"
-    echo "  $0 --train_dataset SYS30k --test_dataset SYS60k --encoder esmc_600m --encoder-type lrr --split dfs"
+    echo "  $0 --train_dataset SHS27k --test_dataset SHS148k --encoder-type lrr --split dfs"
     echo ""
     echo "  # Run all predefined pairs"
     echo "  $0 --run_all"
@@ -76,7 +73,7 @@ show_help() {
     done
 }
 
-# Generate experiment name (consistent with train_mape_experiments.sh)
+# Generates experiment name (consistent with train_sparse_sp_ppi_experiments.sh)
 generate_experiment_name() {
     local dataset="$1"
     local encoder="$2"
@@ -227,78 +224,25 @@ get_checkpoint_path() {
     return 1
 }
 
-# Get config file path (consistent with train_mape_experiments.sh)
+# Get config file path
 get_config_path() {
     local encoder="$1"
     local dataset="$2"
-    local encoder_type="${3:-standard}"
+    local encoder_type="$3"
 
-    # Base config file name based on encoder and dataset
-    local base_config=""
-    if [ "$encoder" = "mape" ]; then
-        base_config="default_config.json"
-    elif [ "$encoder" = "esm2" ]; then
-        base_config="esm2_config.json"
-    elif [ "$encoder" = "esm2_3b" ]; then
-        base_config="precomputed_esm2_3b_${dataset,,}.json"
-    elif [ "$encoder" = "esm3_small" ]; then
-        base_config="precomputed_esm3_small_${dataset,,}.json"
-    elif [ "$encoder" = "esmc_300m" ]; then
-        base_config="precomputed_esmc_300m_${dataset,,}.json"
-    elif [ "$encoder" = "esmc_600m" ]; then
-        base_config="precomputed_esmc_600m_${dataset,,}.json"
-    elif [ "$encoder" = "precomputed" ]; then
-        # For precomputed embeddings, use specific config based on model and dataset
-        case "$dataset" in
-            "SHS27k")
-                base_config="precomputed_esm2_650m_shs27k.json"
-                ;;
-            "SHS148k")
-                base_config="precomputed_esm2_650m_shs148k.json"
-                ;;
-            "Arabidopsis")
-                base_config="precomputed_esm2_650m_arabidopsis.json"
-                ;;
-            "rice")
-                base_config="precomputed_esm2_650m_rice.json"
-                ;;
-            "STRING")
-                base_config="precomputed_esm2_650m_string.json"
-                ;;
-            "SYS30k")
-                base_config="precomputed_esm2_650m_sys30k.json"
-                ;;
-            "SYS60k")
-                base_config="precomputed_esm2_650m_sys60k.json"
-                ;;
-            *)
-                base_config="precomputed_esm2_650m_shs27k.json"  # default
-                ;;
-        esac
-    else
-        base_config="default_config.json"  # default
+    if [ -z "$encoder_type" ]; then
+        encoder_type="lrr"
     fi
 
-    # Handle encoder type modifications
     if [ "$encoder_type" = "lrr" ]; then
-        # For LRR type, use specific LRR config files if they exist
-        local lrr_config="precomputed_${encoder}_lrr_${dataset,,}.json"
+        local lrr_config="precomputed_esmc_600m_lrr_${dataset,,}.json"
         if [ -f "$PROJECT_ROOT/configs/$lrr_config" ]; then
             echo "$PROJECT_ROOT/configs/$lrr_config"
         else
-            echo "$PROJECT_ROOT/configs/$base_config"
-        fi
-    elif [ "$encoder_type" = "pep" ]; then
-        # For PEP type, use specific PEP config files if they exist
-        local pep_config="precomputed_${encoder}_pep_${dataset,,}.json"
-        if [ -f "$PROJECT_ROOT/configs/$pep_config" ]; then
-            echo "$PROJECT_ROOT/configs/$pep_config"
-        else
-            echo "$PROJECT_ROOT/configs/$base_config"
+            echo "$PROJECT_ROOT/configs/precomputed_esmc_600m_lrr_shs27k.json"
         fi
     else
-        # Standard type
-        echo "$PROJECT_ROOT/configs/$base_config"
+        echo "$PROJECT_ROOT/configs/precomputed_esmc_600m_lrr_${dataset,,}.json"
     fi
 }
 
@@ -318,27 +262,7 @@ get_protein_seq_file_path() {
 get_embedding_dir() {
     local encoder="$1"
     local dataset="$2"
-
-    case "$encoder" in
-        "precomputed")
-            echo "$PROJECT_ROOT/embedding/esm2_t33_650M_UR50D/$dataset"
-            ;;
-        "esm2_3b")
-            echo "$PROJECT_ROOT/embedding/esm2_t36_3B_UR50D/$dataset"
-            ;;
-        "esm3_small")
-            echo "$PROJECT_ROOT/embedding/esm3-small-2024-03/$dataset"
-            ;;
-        "esmc_300m")
-            echo "$PROJECT_ROOT/embedding/esmc-300m-2024-12/$dataset"
-            ;;
-        "esmc_600m")
-            echo "$PROJECT_ROOT/embedding/esmc-600m-2024-12/$dataset"
-            ;;
-        *)
-            echo ""
-            ;;
-    esac
+    echo "$PROJECT_ROOT/embedding/esmc-600m-2024-12/${dataset}"
 }
 
 # Setup data directory for inference
@@ -562,7 +486,7 @@ run_all_pairs() {
         IFS=':' read -r train_dataset test_dataset <<< "$pair"
 
         # Use default encoder and split
-        local encoder="precomputed"
+        local encoder="esmc_600m"
         local split_method="random"
 
         ((total_count++))
@@ -633,8 +557,8 @@ main() {
     # Default values
     local train_dataset=""
     local test_dataset=""
-    local encoder="precomputed"
-    local encoder_type="standard"
+    local encoder="esmc_600m"
+    local encoder_type="lrr"
     local split_method="random"
     local run_all=false
     local list_pairs_flag=false

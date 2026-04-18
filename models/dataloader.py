@@ -1,5 +1,5 @@
 """
-Customer Data Loader for Protein-Protein Interaction Prediction
+Sparse-SP-PPI Data Loader for Protein-Protein Interaction Prediction
 Supports multiple encoding methods and heterogeneous graph construction
 """
 
@@ -55,7 +55,7 @@ class ProteinGraphDataset(Dataset):
         self.balance_dataset = balance_dataset
 
         # Encoding configuration
-        self.encoding_type = config.get('encoding_type', 'mape')
+        self.encoding_type = config.get('encoding_type', 'precomputed')
         self.encoding_config = config.get('encoding_config', {})
 
         # Edge construction parameters
@@ -78,7 +78,7 @@ class ProteinGraphDataset(Dataset):
         self.lrr_database = None
         if self.lrr_encoder_enabled:
             lrr_annotation_file = config.get('lrr_annotation_file',
-                                            'customer_ppi/scripts/lrr/lrr_annotation_results.txt')
+                                            'lrr/lrr_annotation_results.txt')
             print(f"[CONFIG] LRR annotation file: {lrr_annotation_file}")
             if os.path.exists(lrr_annotation_file):
                 self.lrr_database = LRRDatabase(lrr_annotation_file)
@@ -1693,7 +1693,7 @@ def validate_data_consistency(protein_ids: List[str],
         available_pdbs = set(f[:-4] for f in os.listdir(pdb_dir) if f.endswith('.pdb'))
     
     # Check embedding file availability for precomputed encoding (parallel check)
-    encoding_type = encoding_config.get('encoding_type', 'mape')
+    encoding_type = encoding_config.get('encoding_type', 'precomputed')
     embedding_files = set()
     
     if encoding_type in ['precomputed', 'alphafold']:

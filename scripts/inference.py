@@ -1,5 +1,5 @@
 """
-Customer PPI Inference Script - 更新版本
+Sparse-SP-PPI Inference Script - 更新版本
 支持异质性模型和动态类别映射的蛋白质-蛋白质互作预测
 """
 
@@ -26,8 +26,8 @@ from typing import List, Tuple, Dict
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.integrated_high_ppi_simple import ProteinGINModelSimple, ExplainableProteinGINModel
-from models.customer_dataloader import PPIDataset, collate_protein_graphs
+from models.sparse_sp_ppi import ProteinGINModelSimple, ExplainableProteinGINModel
+from models.dataloader import PPIDataset, collate_protein_graphs
 from models.checkpoint import load_model_for_inference
 from models.logger import SimpleLogger
 from models.metrics import MetricsCalculator, format_metrics_string
@@ -184,7 +184,7 @@ class PPIPredictor:
         print(f"Encoding {len(protein_dataset.graphs)} proteins...")
 
         # Check if we need heterogeneous encoding
-        from models.customer_dataloader import is_heterogeneous_dataset, collate_heterogeneous_protein_graphs
+        from models.dataloader import is_heterogeneous_dataset, collate_heterogeneous_protein_graphs
         
         use_heterogeneous_encoding = is_heterogeneous_dataset(protein_dataset.graphs)
         
@@ -241,7 +241,7 @@ class PPIPredictor:
     
     def _encode_heterogeneous_proteins(self, protein_dataset):
         """Heterogeneous protein encoding (three-type classification)"""
-        from models.customer_dataloader import collate_heterogeneous_protein_graphs
+        from models.dataloader import collate_heterogeneous_protein_graphs
         
         print("开始异质性蛋白质编码...")
         
@@ -475,7 +475,7 @@ def set_seed(seed):
 
 def evaluate_with_metrics(predictor, ppi_dataset, batch_size=1000, logger=None, split_indices=None):
     """
-    Evaluate model with comprehensive metrics (consistent with customer_train.py)
+    Evaluate model with comprehensive metrics (consistent with train.py)
     
     Args:
         predictor: PPIPredictor instance
@@ -540,7 +540,7 @@ def evaluate_with_metrics(predictor, ppi_dataset, batch_size=1000, logger=None, 
         
         metrics = metrics_calc.calculate_all_metrics(logits_tensor, labels_tensor)
         
-        # Log metrics (consistent with customer_train.py format)
+        # Log metrics (consistent with train.py format)
         logger.log("\n" + "="*70)
         logger.log("Evaluation Metrics")
         logger.log("="*70)
@@ -570,7 +570,7 @@ def evaluate_with_metrics(predictor, ppi_dataset, batch_size=1000, logger=None, 
         
         logger.log("="*70)
         
-        # Dataset statistics (consistent with customer_train.py)
+        # Dataset statistics (consistent with train.py)
         logger.log("\nDataset Statistics:")
         logger.log("="*70)
         logger.log(f"Total samples: {len(split_indices)}")
@@ -632,14 +632,14 @@ def run_cross_dataset_inference(args, logger):
     logger.log(f"Testing dataset: {args.test_dataset}")
     logger.log("")
     
-    # Load config from file first (consistent with customer_train.py)
+    # Load config from file first (consistent with train.py)
     config = None
     if args.config:
         logger.log(f"Loading config from: {args.config}")
         with open(args.config, 'r') as f:
             config_file = json.load(f)
         
-        # Flatten the nested JSON structure (same as customer_train.py)
+        # Flatten the nested JSON structure (same as train.py)
         config = {
             # Model parameters
             'input_dim': config_file.get('model', {}).get('input_dim', 7),
@@ -653,7 +653,7 @@ def run_cross_dataset_inference(args, logger):
             'num_heads': config_file.get('model', {}).get('num_heads', 4),
             
             # Encoding parameters
-            'encoding_type': config_file.get('encoding', {}).get('encoding_type', 'mape'),
+            'encoding_type': config_file.get('encoding', {}).get('encoding_type', 'precomputed'),
             'encoding_config': {
                 'feature_file': config_file.get('encoding', {}).get('feature_file', None),
                 'embedding_dir': config_file.get('encoding', {}).get('embedding_dir', None),
@@ -670,7 +670,7 @@ def run_cross_dataset_inference(args, logger):
             'peptide_encoder_enabled': config_file.get('encoding', {}).get('peptide_encoder_enabled', False),
             'peptide_length_threshold': config_file.get('encoding', {}).get('peptide_length_threshold', 50),
             'lrr_encoder_enabled': config_file.get('encoding', {}).get('lrr_encoder_enabled', False),
-            'lrr_annotation_file': config_file.get('encoding', {}).get('lrr_annotation_file', 'customer_ppi/scripts/lrr/lrr_annotation_results.txt'),
+            'lrr_annotation_file': config_file.get('encoding', {}).get('lrr_annotation_file', 'lrr/lrr_annotation_results.txt'),
             
             # Add encoding section for compatibility
             'encoding': config_file.get('encoding', {}),
@@ -701,7 +701,7 @@ def run_cross_dataset_inference(args, logger):
                 'dropout_ratio': 0.3,
                 'use_attention': False,
                 'num_heads': 4,
-                'encoding_type': 'mape',
+                'encoding_type': 'precomputed',
                 'encoding_config': {},
                 'spatial_threshold': 10.0,
                 'knn_k': 5,
@@ -746,7 +746,7 @@ def run_cross_dataset_inference(args, logger):
         logger.log(f"Number of proteins: {len(ppi_dataset.protein_dataset)}")
         
         # Detect actual classes in test dataset and adjust output dimension if needed
-        # (Same logic as in customer_train.py)
+        # (Same logic as in train.py)
         actual_num_classes, actual_class_map = ppi_dataset.detect_actual_classes()
         config_output_dim = predictor.config.get('output_dim', 7)
         
@@ -1050,7 +1050,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Customer PPI Inference")
+    parser = argparse.ArgumentParser(description="Sparse-SP-PPI Inference")
     
     # Model arguments
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to model checkpoint")

@@ -9,46 +9,43 @@ Sparse-SP-PPI is a hierarchical heterogeneous graph neural network for protein-p
 - **Protein-level (Bottom View)**: Each protein is modeled as a heterogeneous graph with amino acids as nodes. Multiple edge types capture structural and sequence relationships, including sequence adjacency (SEQ), spatial distance (STR_DIS), spatial K-nearest neighbors (STR_KNN), surface accessibility (SURF), and LRR region connectivity (LRR_REGION).
 - **PPI-level (Top View)**: A protein-protein interaction network where proteins are nodes and interactions are edges. Graph convolution layers propagate information across the interaction network.
 
-The key innovation is the **LRRTrainableEncoder**, which learns attention-weighted aggregation across different edge types, with special emphasis on Leucine-Rich Repeat (LRR) domain regions that are critical for plant immune receptor interactions.
+The key innovation is the **SparseEdgeAttentionEncoder**, which learns attention-weighted aggregation across different edge types, with special emphasis on Leucine-Rich Repeat (LRR) domain regions that are critical for plant immune receptor interactions.
 
 ## Architecture
 
 ### Model: ProteinGINModelSimple
 
 ```
-Protein Graph → LRRTrainableEncoder (attention-weighted edge aggregation)
+Protein Graph → SparseEdgeAttentionEncoder (attention-weighted edge aggregation)
              → Mean Pooling → Protein Embedding
                                               ↓
 PPI Network  → GraphConv Layers → Interaction Prediction Head
 ```
 
-**LRRTrainableEncoder**:
+**SparseEdgeAttentionEncoder**:
 - Processes 5 edge types: SEQ, STR_KNN, STR_DIS, SURF, LRR_REGION
 - Learns relation-specific attention scores via MLP
 - Applies temperature-scaled softmax with attention bias
 - Supports periodic gradient updates for LRR attention weights
 
-### Supported Encodings
+### Encoding
 
 | Encoding | Description | Dimension |
 |----------|-------------|-----------|
-| MAPE | Physicochemical features (7-dim) | 7 |
-| ESM2 | ESM2-650M pre-trained embeddings | 1280 |
-| ESM2-3B | ESM2-3B pre-trained embeddings | 2560 |
-| ESM3-small | ESM3-small pre-trained embeddings | 768 |
-| ESMC-300M | ESMC-300M pre-trained embeddings | 768 |
-| ESMC-600M | ESMC-600M pre-trained embeddings | 1152 |
+| ESMC-600M | ESMC-600M pre-trained embeddings (recommended) | 1152 |
 | Precomputed | Custom .npy embedding files | Variable |
+
+Other encodings (MAPE, ESM2, ESM3, OneHot) are deprecated but still available in code.
 
 ## Project Structure
 
 ```
 Sparse-SP-PPI/
 ├── models/                           # Core model package
-│   ├── integrated_high_ppi_simple.py # Main model (ProteinGINModelSimple, LRRTrainableEncoder)
-│   ├── customer_dataloader.py        # Data loading and graph construction
+│   ├── sparse_sp_ppi.py              # Main model (ProteinGINModelSimple, SparseEdgeAttentionEncoder)
+│   ├── dataloader.py                 # Data loading and graph construction
 │   ├── edge_construction.py          # Edge type builders (SEQ, STR_KNN, STR_DIS, SURF)
-│   ├── node_encoding.py              # Node feature encoders (MAPE, ESM2, Precomputed, OneHot)
+│   ├── node_encoding.py              # Node feature encoders (PrecomputedEncoder primary)
 │   ├── protein_graph_builder.py      # Graph construction strategies
 │   ├── lrr_parser.py                 # LRR annotation parser
 │   ├── lrr_extractor.py              # LRR node embedding extraction
@@ -56,15 +53,14 @@ Sparse-SP-PPI/
 │   ├── logger.py                     # TensorBoard + text logging
 │   └── checkpoint.py                 # Model checkpoint management
 ├── scripts/                          # Training and inference scripts
-│   ├── customer_train.py             # Main training script
-│   ├── customer_inference.py         # Inference script
+│   ├── train.py                      # Main training script
+│   ├── inference.py                  # Inference script
 │   ├── train_sparse_sp_ppi_experiments.sh  # Batch training experiments
 │   ├── infer_sparse_sp_ppi_experiments.sh  # Batch inference experiments
 │   ├── run_cross_dataset_inference.sh      # Cross-dataset inference
 │   ├── batch_csv_to_fasta.sh               # CSV to FASTA conversion
 │   ├── batch_generate_esm_embeddings.sh    # ESM embedding generation
-│   ├── example_usage.sh                    # Usage examples
-│   └── test.sh                             # Quick test script
+│   └── example_usage.sh                    # Usage examples
 ├── configs/                          # JSON configuration files
 │   └── precomputed_esmc_600m_lrr_*.json   # ESMC-600M LRR configs per dataset
 ├── lrr_annotation/                   # LRR annotation generation tools
@@ -87,10 +83,7 @@ Sparse-SP-PPI/
 # Install dependencies
 pip install -r requirements.txt
 
-# Optional: ESM2 support
-pip install fair-esm
-
-# Optional: ESMC support
+# ESMC support (for embedding generation)
 pip install esm-c
 ```
 
@@ -104,7 +97,7 @@ data/
 │   ├── protein.actions.<DATASET>.txt       # PPI interactions
 │   └── protein.<DATASET>.sequences.dictionary.csv  # Protein sequences
 ├── pdbs/                                    # PDB structure files (AlphaFold2)
-└── embedding/                               # Precomputed embeddings (optional)
+└── embedding/                               # Precomputed embeddings
     └── esmc-600m-2024-12/<DATASET>/        # Per-dataset embedding files
 ```
 
@@ -140,8 +133,8 @@ This computes winding numbers via parallel transport along the protein backbone,
 ## Training
 
 ```bash
-# Basic training with MAPE encoding
-python scripts/customer_train.py \
+# Training with ESMC-600M encoding
+python scripts/train.py \
     --ppi_file data/processed_data/protein.actions.SHS27k.txt \
     --protein_seq_file data/processed_data/protein.SHS27k.sequences.dictionary.csv \
     --pdb_dir data/pdbs \
@@ -149,7 +142,7 @@ python scripts/customer_train.py \
     --encoding_type precomputed \
     --experiment_name my_experiment
 
-# Batch training with multiple configurations
+# Batch training
 bash scripts/train_sparse_sp_ppi_experiments.sh \
     --dataset SHS27k \
     --encoder esmc_600m \
@@ -161,7 +154,7 @@ bash scripts/train_sparse_sp_ppi_experiments.sh \
 
 ```bash
 # Predict all interactions
-python scripts/customer_inference.py \
+python scripts/inference.py \
     --checkpoint logs/my_experiment/checkpoints/best_model.pth \
     --ppi_file data/processed_data/protein.actions.SHS27k.txt \
     --protein_seq_file data/processed_data/protein.SHS27k.sequences.dictionary.csv \
@@ -170,7 +163,7 @@ python scripts/customer_inference.py \
     --output predictions.csv
 
 # Predict specific protein pair
-python scripts/customer_inference.py \
+python scripts/inference.py \
     --checkpoint logs/my_experiment/checkpoints/best_model.pth \
     --ppi_file data/processed_data/protein.actions.SHS27k.txt \
     --protein_seq_file data/processed_data/protein.SHS27k.sequences.dictionary.csv \

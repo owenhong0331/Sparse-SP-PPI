@@ -12,7 +12,7 @@ PYTHON_SCRIPT="$SCRIPT_DIR/generate_esm_embeddings_v2.py"
 # Models to generate embeddings for
 # MODELS=("esm2_t33_650M_UR50D" "esm2_t36_3B_UR50D" "esm2_t48_15B_UR50D" "esm3-small-2024-03" "esmc-300m-2024-12" "esmc-600m-2024-12")
 # MODELS=("esm2_t33_650M_UR50D" "esm2_t36_3B_UR50D" "esm3-small-2024-03" "esmc-300m-2024-12" "esmc-600m-2024-12")
-MODELS=("esm3-small-2024-03" "esmc-300m-2024-12" "esmc-600m-2024-12")
+MODELS=("esmc-600m-2024-12")
 # Note: ESM3 medium model is not available
 
 # Datasets to process

@@ -1,21 +1,21 @@
 #!/bin/bash
 
-# MAPE PPI Experiments Training Script
-# Comprehensive training pipeline for different datasets, encoders, and split methods
+# Sparse-SP-PPI Experiments Training Script
+# Comprehensive training pipeline for different datasets and split methods
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CACHE_ROOT="$PROJECT_ROOT/graphcache"
 
 # Default configurations
-PYTHON_SCRIPT="customer_train.py"
+PYTHON_SCRIPT="train.py"
 DATA_DIR="$PROJECT_ROOT/data"
 
 # Available datasets (all supported datasets)
 DATASETS=("SHS27k" "SHS148k" "Arabidopsis" "rice" "STRING")
 
 # Available encoder types
-ENCODERS=("mape" "esm2" "esm2_3b" "esm3_small" "esmc_300m" "esmc_600m" "precomputed")
+ENCODERS=("esmc_600m")
 
 # Available encoder types (standard, lrr, pep)
 ENCODER_TYPES=("standard" "lrr" "pep")
@@ -92,74 +92,19 @@ get_config_path() {
     local dataset="$2"
     local encoder_type="$3"
 
-    # Default to standard type for backward compatibility
     if [ -z "$encoder_type" ]; then
-        encoder_type="standard"
+        encoder_type="lrr"
     fi
 
-    # Base config file name based on encoder and dataset
-    local base_config=""
-    if [ "$encoder" = "mape" ]; then
-        base_config="default_config.json"
-    elif [ "$encoder" = "esm2" ]; then
-        base_config="esm2_config.json"
-    elif [ "$encoder" = "esm2_3b" ]; then
-        base_config="precomputed_esm2_3b_${dataset,,}.json"
-    elif [ "$encoder" = "esm3_small" ]; then
-        base_config="precomputed_esm3_small_${dataset,,}.json"
-    elif [ "$encoder" = "esmc_300m" ]; then
-        base_config="precomputed_esmc_300m_${dataset,,}.json"
-    elif [ "$encoder" = "esmc_600m" ]; then
-        base_config="precomputed_esmc_600m_${dataset,,}.json"
-    elif [ "$encoder" = "precomputed" ]; then
-        # For precomputed embeddings, use specific config based on model and dataset
-        case "$dataset" in
-            "SHS27k")
-                base_config="precomputed_esm2_650m_shs27k.json"
-                ;;
-            "SHS148k")
-                base_config="precomputed_esm2_650m_shs148k.json"
-                ;;
-            "Arabidopsis")
-                base_config="precomputed_esm2_650m_arabidopsis.json"
-                ;;
-            "rice")
-                base_config="precomputed_esm2_650m_rice.json"
-                ;;
-            "STRING")
-                base_config="precomputed_esm2_650m_string.json"
-                ;;
-            *)
-                base_config="precomputed_esm2_650m_shs27k.json"  # default
-                ;;
-        esac
-    else
-        base_config="default_config.json"  # default
-    fi
-
-    # Handle encoder type modifications
     if [ "$encoder_type" = "lrr" ]; then
-        # For LRR type, use specific LRR config files if they exist
-        local lrr_config="precomputed_${encoder}_lrr_${dataset,,}.json"
+        local lrr_config="precomputed_esmc_600m_lrr_${dataset,,}.json"
         if [ -f "$PROJECT_ROOT/configs/$lrr_config" ]; then
             echo "$PROJECT_ROOT/configs/$lrr_config"
         else
-            # Fall back to modifying standard config for LRR
-            # This will be handled in the training command
-            echo "$PROJECT_ROOT/configs/$base_config"
-        fi
-    elif [ "$encoder_type" = "pep" ]; then
-        # For PEP type, use specific PEP config files if they exist
-        local pep_config="precomputed_${encoder}_pep_${dataset,,}.json"
-        if [ -f "$PROJECT_ROOT/configs/$pep_config" ]; then
-            echo "$PROJECT_ROOT/configs/$pep_config"
-        else
-            # Fall back to standard config
-            echo "$PROJECT_ROOT/configs/$base_config"
+            echo "$PROJECT_ROOT/configs/precomputed_esmc_600m_lrr_shs27k.json"
         fi
     else
-        # Standard type
-        echo "$PROJECT_ROOT/configs/$base_config"
+        echo "$PROJECT_ROOT/configs/precomputed_esmc_600m_lrr_${dataset,,}.json"
     fi
 }
 
@@ -179,20 +124,7 @@ get_protein_dict_path() {
 get_embedding_dir() {
     local encoder="$1"
     local dataset="$2"
-
-    if [ "$encoder" = "precomputed" ]; then
-        echo "$PROJECT_ROOT/embedding/esm2_t33_650M_UR50D/$dataset"
-    elif [ "$encoder" = "esm2_3b" ]; then
-        echo "$PROJECT_ROOT/embedding/esm2_t36_3B_UR50D/$dataset"
-    elif [ "$encoder" = "esm3_small" ]; then
-        echo "$PROJECT_ROOT/embedding/esm3-small-2024-03/$dataset"
-    elif [ "$encoder" = "esmc_300m" ]; then
-        echo "$PROJECT_ROOT/embedding/esmc-300m-2024-12/$dataset"
-    elif [ "$encoder" = "esmc_600m" ]; then
-        echo "$PROJECT_ROOT/embedding/esmc-600m-2024-12/$dataset"
-    else
-        echo ""  # Empty for non-precomputed encoders
-    fi
+    echo "$PROJECT_ROOT/embedding/esmc-600m-2024-12/${dataset}"
 }
 
 # Run training for a single configuration
@@ -259,10 +191,7 @@ train_experiment() {
     cd "$SCRIPT_DIR"
 
     # Build the command with optional embedding_dir parameter
-    local encoding_type="$encoder"
-    if [[ "$encoder" == "esm2_3b" || "$encoder" == "esm3_small" || "$encoder" == "esmc_300m" || "$encoder" == "esmc_600m" ]]; then
-        encoding_type="precomputed"
-    fi
+    local encoding_type="precomputed"
 
     local cmd="python -B \"$PYTHON_SCRIPT\" \
         --ppi_file \"$ppi_file\" \
@@ -318,7 +247,7 @@ restore_data_directory() {
 
 # Main execution function
 main() {
-    echo "=== MAPE PPI Experiments Training ==="
+    echo "=== Sparse-SP-PPI Experiments Training ==="
     echo "Project Root: $PROJECT_ROOT"
     echo "Script Directory: $SCRIPT_DIR"
     echo ""
@@ -414,7 +343,7 @@ main() {
 show_help() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
-    echo "Run MAPE PPI experiments with different configurations"
+    echo "Run Sparse-SP-PPI experiments with different configurations"
     echo ""
     echo "Options:"
     echo "  --dataset DATASET    Run specific dataset (default: all)"
@@ -428,13 +357,7 @@ show_help() {
     echo "  --help              Show this help message"
     echo ""
     echo "Encoder Details:"
-    echo "  mape       - MAPE encoder (uses ESM2 650M internally)"
-    echo "  esm2       - ESM2 650M encoder"
-    echo "  esm2_3b    - ESM2 3B encoder (2560 dim, smaller batch size)"
-    echo "  esm3_small - ESM3-small encoder (768 dim, 2024-03/12)"
-    echo "  esmc_300m  - ESMC-300m encoder (768 dim, 2024-12)"
-    echo "  esmc_600m  - ESMC-600m encoder (1024 dim, 2024-12)"
-    echo "  precomputed- Precomputed ESM2 650M embeddings"
+    echo "  esmc_600m  - ESMC-600m encoder (1152 dim, 2024-12)"
     echo ""
     echo "Encoder Type Details:"
     echo "  standard   - Standard protein encoder (default)"
@@ -442,12 +365,11 @@ show_help() {
     echo "  pep        - Peptide encoder (for small peptide interactions)"
     echo ""
     echo "Examples:"
-    echo "  $0                            # Run all experiments (5x7x3x3 = 315)"
-    echo "  $0 --dataset SHS27k           # Run SHS27k with all encoders and splits"
-    echo "  $0 --encoder esm3_small --split bfs  # Run ESM3-small with BFS split"
-    echo "  $0 --encoder esm2_3b --dataset Arabidopsis  # Run ESM2-3B on Arabidopsis"
+    echo "  $0                            # Run all experiments"
+    echo "  $0 --dataset SHS27k           # Run SHS27k with all splits"
+    echo "  $0 --split bfs                # Run BFS split"
     echo "  $0 --encoder-type lrr         # Run all LRR experiments"
-    echo "  $0 --dataset SHS27k --encoder-type lrr --encoder esmc_300m  # Specific LRR config"
+    echo "  $0 --dataset SHS27k --encoder-type lrr --split dfs  # Specific config"
     echo ""
 }
 

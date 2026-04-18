@@ -9,6 +9,7 @@ Supports multiple encoding methods:
 """
 
 import os
+import warnings
 import numpy as np
 import torch
 import torch.nn as nn
@@ -52,6 +53,7 @@ class MAPEPPIEncoder(NodeEncoder):
     """
     
     def __init__(self, feature_file: str = None):
+        warnings.warn("MAPEPPIEncoder is deprecated. Use PrecomputedEncoder with ESMC-600M embeddings instead.", DeprecationWarning, stacklevel=2)
         super().__init__(encoding_dim=7)
         
         # Load feature matrix (20 amino acids x 7 features)
@@ -166,6 +168,7 @@ class ESM2Encoder(NodeEncoder):
             model_name: ESM2 model variant
             device: Device to run model on
         """
+        warnings.warn("ESM2Encoder is deprecated. Use PrecomputedEncoder with pre-generated ESMC-600M embeddings instead.", DeprecationWarning, stacklevel=2)
         try:
             import esm
         except ImportError:
@@ -220,6 +223,7 @@ class ESM3Encoder(NodeEncoder):
     """
     
     def __init__(self):
+        warnings.warn("ESM3Encoder is deprecated. Use PrecomputedEncoder with pre-generated ESMC-600M embeddings instead.", DeprecationWarning, stacklevel=2)
         raise NotImplementedError("ESM3 encoder not yet implemented")
 
 
@@ -227,6 +231,7 @@ class OneHotEncoder(NodeEncoder):
     """Simple one-hot encoding of amino acids"""
     
     def __init__(self):
+        warnings.warn("OneHotEncoder is deprecated. Use PrecomputedEncoder with ESMC-600M embeddings instead.", DeprecationWarning, stacklevel=2)
         super().__init__(encoding_dim=20)
     
     def encode(self, residue_names: List[str]) -> np.ndarray:
@@ -246,7 +251,7 @@ def get_encoder(encoding_type: str, **kwargs) -> NodeEncoder:
     Factory function to get appropriate encoder
     
     Args:
-        encoding_type: Type of encoding ('mape', 'esm2', 'esm3', 'alphafold', 'precomputed', 'onehot')
+        encoding_type: Type of encoding ('precomputed', 'esmc_600m', 'alphafold', 'mape', 'esm2', 'esm3', 'onehot')
         **kwargs: Additional arguments for specific encoders
     
     Returns:
@@ -254,30 +259,31 @@ def get_encoder(encoding_type: str, **kwargs) -> NodeEncoder:
     """
     encoding_type = encoding_type.lower()
     
-    if encoding_type == 'mape':
-        return MAPEPPIEncoder(kwargs.get('feature_file'))
-    
-    elif encoding_type == 'esm2':
-        return ESM2Encoder(
-            model_name=kwargs.get('model_name', 'esm2_t33_650M_UR50D'),
-            device=kwargs.get('device', 'cuda')
-        )
-    
-    elif encoding_type == 'esm3':
-        return ESM3Encoder()
-    
-    elif encoding_type in ['alphafold', 'precomputed']:
+    if encoding_type in ['precomputed', 'esmc_600m', 'alphafold']:
         return PrecomputedEncoder(
             embedding_dir=kwargs['embedding_dir'],
             protein_id=kwargs['protein_id'],
             validate_dims=kwargs.get('validate_dims', True)
         )
-    
-    elif encoding_type == 'onehot':
-        return OneHotEncoder()
-    
+    elif encoding_type in ['mape', 'esm2', 'esm3', 'onehot']:
+        warnings.warn(
+            f"encoding_type='{encoding_type}' is deprecated. Use 'precomputed' or 'esmc_600m' with ESMC-600M embeddings.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        if encoding_type == 'mape':
+            return MAPEPPIEncoder(kwargs.get('feature_file'))
+        elif encoding_type == 'esm2':
+            return ESM2Encoder(
+                model_name=kwargs.get('model_name', 'esm2_t33_650M_UR50D'),
+                device=kwargs.get('device', 'cuda')
+            )
+        elif encoding_type == 'esm3':
+            return ESM3Encoder()
+        elif encoding_type == 'onehot':
+            return OneHotEncoder()
     else:
-        raise ValueError(f"Unknown encoding type: {encoding_type}")
+        raise ValueError(f"Unknown encoding type: {encoding_type}. Supported: 'precomputed', 'esmc_600m'")
 
 
 def validate_embedding_directory(embedding_dir: str) -> Tuple[bool, Dict[str, any]]:

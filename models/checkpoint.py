@@ -262,6 +262,19 @@ def save_model_for_inference(model: torch.nn.Module,
         json.dump(config, f, indent=2)
 
 
+def migrate_checkpoint_state_dict(state_dict):
+    """Migrate old checkpoint keys for backward compatibility.
+    
+    Renames:
+    - lrr_encoder.* -> sparse_edge_attention_encoder.*
+    """
+    new_state_dict = {}
+    for key, value in state_dict.items():
+        new_key = key.replace('lrr_encoder.', 'sparse_edge_attention_encoder.')
+        new_state_dict[new_key] = value
+    return new_state_dict
+
+
 def load_model_for_inference(model: torch.nn.Module,
                              checkpoint_path: str,
                              device: str = 'cuda') -> Dict[str, Any]:
@@ -278,8 +291,10 @@ def load_model_for_inference(model: torch.nn.Module,
     """
     checkpoint = torch.load(checkpoint_path, map_location=device)
     
-    # Load model weights
-    model.load_state_dict(checkpoint['model_state_dict'])
+    # Load model weights (with migration for backward compatibility)
+    state_dict = checkpoint['model_state_dict']
+    state_dict = migrate_checkpoint_state_dict(state_dict)
+    model.load_state_dict(state_dict)
     model.eval()
     
     return {

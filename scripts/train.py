@@ -1,5 +1,5 @@
 """
-Customer PPI Training Script
+Sparse-SP-PPI Training Script
 Comprehensive training pipeline for protein-protein interaction prediction
 """
 import traceback 
@@ -23,10 +23,10 @@ from torch.utils.data import DataLoader
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.integrated_high_ppi_simple import ProteinGINModelSimple, ExplainableProteinGINModel
-from models.customer_dataloader import PPIDataset
-# from models.customer_dataloader_balanced import BalancedPPIDataset, encode_proteins
-# from models.customer_dataloader_balanced_new import BalancedPPIDataset, encode_proteins
+from models.sparse_sp_ppi import ProteinGINModelSimple, ExplainableProteinGINModel
+from models.dataloader import PPIDataset
+# from models.dataloader_balanced import BalancedPPIDataset, encode_proteins
+# from models.dataloader_balanced_new import BalancedPPIDataset, encode_proteins
 from models.metrics import MetricsCalculator, format_metrics_string
 from models.logger import TrainingLogger
 from models.checkpoint import CheckpointManager
@@ -135,7 +135,7 @@ def train_epoch(model, protein_graphs, ppi_g, ppi_list, labels, indices,
         if batch_idx == 0:
             print(f"\n[LRRDEBUG] Batch {batch_idx} - 训练前参数状态:")
             for name, param in model.named_parameters():
-                if 'lrr_logits' in name or 'lrr_encoder' in name:
+                if 'lrr_logits' in name or 'sparse_edge_attention_encoder' in name:
                     # print(f"  {name} 值: {param.data.tolist()}")
                     print(f"  {name} requires_grad: {param.requires_grad}")
         
@@ -163,7 +163,7 @@ def train_epoch(model, protein_graphs, ppi_g, ppi_list, labels, indices,
         if batch_idx == 0:
             print(f"\n[LRRDEBUG] Batch {batch_idx} - 反向传播前梯度状态:")
             for name, param in model.named_parameters():
-                if 'lrr_logits' in name or 'lrr_encoder' in name:
+                if 'lrr_logits' in name or 'sparse_edge_attention_encoder' in name:
                     grad_info = param.grad.tolist() if param.grad is not None else "None"
                     print(f"  {name} 梯度 (before backward): {grad_info}")
         
@@ -254,7 +254,7 @@ def encode_proteins(model, protein_dataset):
     print(f"Encoding {len(protein_dataset.graphs)} proteins...")
 
     # 检测是否需要使用三类型分类批处理
-    from models.customer_dataloader import is_heterogeneous_dataset, collate_heterogeneous_protein_graphs
+    from models.dataloader import is_heterogeneous_dataset, collate_heterogeneous_protein_graphs
     
     use_heterogeneous_encoding = is_heterogeneous_dataset(protein_dataset.graphs)
     
@@ -540,8 +540,8 @@ def analyze_lrr_vs_non_lrr(model, protein_graphs, ppi_g, ppi_list, labels,
             return None, None
         
         # 重置alpha统计
-        if hasattr(model, 'lrr_encoder') and hasattr(model.lrr_encoder, 'reset_alpha_stats'):
-            model.lrr_encoder.reset_alpha_stats()
+        if hasattr(model, 'sparse_edge_attention_encoder') and hasattr(model.sparse_edge_attention_encoder, 'reset_alpha_stats'):
+            model.sparse_edge_attention_encoder.reset_alpha_stats()
         
         all_preds = []
         all_labels_list = []
@@ -714,7 +714,7 @@ def main(args):
             'peptide_encoder_enabled': config_file.get('encoding', {}).get('peptide_encoder_enabled', False),
             'peptide_length_threshold': config_file.get('encoding', {}).get('peptide_length_threshold', 50),
             'lrr_encoder_enabled': config_file.get('encoding', {}).get('lrr_encoder_enabled', False),
-            'lrr_annotation_file': config_file.get('encoding', {}).get('lrr_annotation_file', 'customer_ppi/scripts/lrr/lrr_annotation_results.txt'),
+            'lrr_annotation_file': config_file.get('encoding', {}).get('lrr_annotation_file', 'lrr/lrr_annotation_results.txt'),
             
             # Add encoding section to config for compatibility
             'encoding': config_file.get('encoding', {}),
@@ -724,7 +724,7 @@ def main(args):
         # Override with command line arguments if provided
         if args.input_dim != 7:  # If not default
             config['input_dim'] = args.input_dim
-        if args.encoding_type != "mape":  # If not default
+        if args.encoding_type != "precomputed":  # If not default
             config['encoding_type'] = args.encoding_type
             # Also update encoding_config to ensure consistency
             config['encoding_config']['encoding_type'] = args.encoding_type
@@ -740,7 +740,7 @@ def main(args):
             config['peptide_length_threshold'] = args.peptide_length_threshold
         if hasattr(args, 'lrr_encoder_enabled') and args.lrr_encoder_enabled:
             config['lrr_encoder_enabled'] = True
-        if hasattr(args, 'lrr_annotation_file') and args.lrr_annotation_file != "customer_ppi/scripts/lrr/lrr_annotation_results.txt":
+        if hasattr(args, 'lrr_annotation_file') and args.lrr_annotation_file != "lrr/lrr_annotation_results.txt":
             config['lrr_annotation_file'] = args.lrr_annotation_file
         
         # Update training parameters from config file
@@ -794,7 +794,7 @@ def main(args):
         if 'logging' in config_file:
             if hasattr(args, 'log_dir') and args.log_dir == "../logs":  # If using default
                 args.log_dir = config_file['logging'].get('log_dir', args.log_dir)
-            if hasattr(args, 'experiment_name') and args.experiment_name == "customer_ppi":  # If using default
+            if hasattr(args, 'experiment_name') and args.experiment_name == "sparse_sp_ppi":  # If using default
                 args.experiment_name = config_file['logging'].get('experiment_name', args.experiment_name)
             if hasattr(args, 'save_every') and args.save_every == 10:  # If using default
                 args.save_every = config_file['logging'].get('save_every', args.save_every)
@@ -835,7 +835,7 @@ def main(args):
             'peptide_encoder_enabled': False,
             'peptide_length_threshold': 50,
             'lrr_encoder_enabled': False,
-            'lrr_annotation_file': 'customer_ppi/scripts/lrr/lrr_annotation_results.txt'
+            'lrr_annotation_file': 'lrr/lrr_annotation_results.txt'
         }
     
     # Initialize logger
@@ -1146,9 +1146,9 @@ def main(args):
     # args.lrr_learning_rate = 0.001
     # Create separate optimizer for LRR weights if LRR encoder is enabled
     lrr_optimizer = None
-    if hasattr(model, 'lrr_encoder') and model.lrr_encoder is not None:
+    if hasattr(model, 'sparse_edge_attention_encoder') and model.sparse_edge_attention_encoder is not None:
         lrr_optimizer = optim.AdamW(
-            model.lrr_encoder.parameters(),
+            model.sparse_edge_attention_encoder.parameters(),
             lr=args.lrr_learning_rate,
             weight_decay=args.lrr_weight_decay
         )
@@ -1514,7 +1514,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Customer PPI Training")
+    parser = argparse.ArgumentParser(description="Sparse-SP-PPI Training")
     
     # Data arguments
     parser.add_argument("--ppi_file", type=str, required=True, help="Path to PPI file")
@@ -1535,10 +1535,10 @@ if __name__ == "__main__":
     parser.add_argument("--num_heads", type=int, default=4, help="Number of attention heads")
     
     # Encoding arguments
-    parser.add_argument("--encoding_type", type=str, default="mape", 
-                       choices=["mape", "esm2", "precomputed", "onehot"],
+    parser.add_argument("--encoding_type", type=str, default="precomputed", 
+                       choices=["precomputed", "esmc_600m"],
                        help="Node encoding type")
-    parser.add_argument("--feature_file", type=str, default=None, help="Feature file for MAPE encoding")
+    parser.add_argument("--feature_file", type=str, default=None, help="Feature file for precomputed encoding")
     parser.add_argument("--embedding_dir", type=str, default=None, help="Directory for precomputed embeddings")
 
     # Multi-encoder arguments
@@ -1548,7 +1548,7 @@ if __name__ == "__main__":
                        help="Length threshold for peptide classification")
     parser.add_argument("--lrr_encoder_enabled", action="store_true", default=False,
                        help="Enable LRR (Leucine-Rich Repeat) encoder")
-    parser.add_argument("--lrr_annotation_file", type=str, default="customer_ppi/scripts/lrr/lrr_annotation_results.txt",
+    parser.add_argument("--lrr_annotation_file", type=str, default="lrr/lrr_annotation_results.txt",
                        help="Path to LRR annotation file")
     parser.add_argument("--lrr_learning_rate", type=float, default=0.001,
                        help="Learning rate for LRR weight updates")
@@ -1587,7 +1587,7 @@ if __name__ == "__main__":
     
     # Logging and checkpointing
     parser.add_argument("--log_dir", type=str, default="../logs", help="Log directory")
-    parser.add_argument("--experiment_name", type=str, default="customer_ppi", help="Experiment name")
+    parser.add_argument("--experiment_name", type=str, default="sparse_sp_ppi", help="Experiment name")
     parser.add_argument("--save_every", type=int, default=10, help="Save checkpoint every N epochs")
     parser.add_argument("--max_checkpoints", type=int, default=5, help="Maximum checkpoints to keep")
     parser.add_argument("--selection_metric", type=str, default="f1_micro", help="Metric for model selection")

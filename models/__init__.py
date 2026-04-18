@@ -2,7 +2,7 @@
 Sparse-SP-PPI Models Package
 """
 
-from .integrated_high_ppi_simple import ProteinGINModelSimple, ExplainableProteinGINModel, LRRTrainableEncoder
+from .sparse_sp_ppi import ProteinGINModelSimple, ExplainableProteinGINModel, SparseEdgeAttentionEncoder
 from .edge_construction import (
     build_sequence_edges,
     build_spatial_distance_edges,
@@ -20,7 +20,7 @@ from .node_encoding import (
     get_encoder,
     validate_embedding_directory
 )
-from .customer_dataloader import (
+from .dataloader import (
     ProteinGraphDataset,
     PPIDataset,
     collate_protein_graphs
@@ -34,7 +34,7 @@ __all__ = [
     # Models
     'ProteinGINModelSimple',
     'ExplainableProteinGINModel',
-    'LRRTrainableEncoder',
+    'SparseEdgeAttentionEncoder',
 
     # Edge construction
     'build_sequence_edges',

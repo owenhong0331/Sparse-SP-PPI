@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# MAPE PPI 批量推理脚本
+# Sparse-SP-PPI 批量推理脚本
 # 基于训练实验结果的批量推理管道
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -8,7 +8,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CACHE_ROOT="$PROJECT_ROOT/graphcache"
 
 # 默认配置
-PYTHON_SCRIPT="customer_inference.py"
+PYTHON_SCRIPT="inference.py"
 DATA_DIR="$PROJECT_ROOT/data"
 RESULTS_DIR="$PROJECT_ROOT/results"
 
@@ -16,7 +16,7 @@ RESULTS_DIR="$PROJECT_ROOT/results"
 DATASETS=("SHS27k" "SHS148k" "Arabidopsis" "rice" "STRING")
 
 # 支持的编码器类型（与训练一致）
-ENCODERS=("mape" "esm2" "esm2_3b" "esm3_small" "esmc_300m" "esmc_600m" "precomputed")
+ENCODERS=("esmc_600m")
 
 # 支持的编码器类型（标准、lrr、pep）
 ENCODER_TYPES=("standard" "lrr" "pep")
@@ -337,7 +337,7 @@ restore_data_directory() {
 
 # 主执行函数
 main() {
-    echo "=== MAPE PPI 批量推理实验 ==="
+    echo "=== Sparse-SP-PPI 批量推理实验 ==="
     echo "项目根目录: $PROJECT_ROOT"
     echo "脚本目录: $SCRIPT_DIR"
     echo ""
@@ -446,7 +446,7 @@ generate_overall_summary() {
 
     local overall_summary="$PROJECT_ROOT/inference_results/overall_summary.txt"
 
-    echo "=== MAPE PPI 批量推理实验总体摘要 ===" > "$overall_summary"
+    echo "=== Sparse-SP-PPI 批量推理实验总体摘要 ===" > "$overall_summary"
     echo "生成时间: $(date)" >> "$overall_summary"
     echo "" >> "$overall_summary"
     echo "总实验数量: $total_count" >> "$overall_summary"
@@ -463,7 +463,7 @@ generate_overall_summary() {
 show_help() {
     echo "用法: $0 [选项]"
     echo ""
-    echo "运行MAPE PPI批量推理实验"
+    echo "运行Sparse-SP-PPI批量推理实验"
     echo ""
     echo "选项:"
     echo "  --dataset 数据集    运行特定数据集（默认：全部）"
@@ -477,13 +477,7 @@ show_help() {
     echo "  --help             显示此帮助信息"
     echo ""
     echo "编码器详细信息："
-    echo "  mape       - MAPE编码器（内部使用ESM2 650M）"
-    echo "  esm2       - ESM2 650M编码器"
-    echo "  esm2_3b    - ESM2 3B编码器（2560维，较小批大小）"
-    echo "  esm3_small - ESM3-small编码器（768维，2024-03/12）"
-    echo "  esmc_300m  - ESMC-300m编码器（768维，2024-12）"
-    echo "  esmc_600m  - ESMC-600m编码器（1024维，2024-12）"
-    echo "  precomputed- 预计算ESM2 650M嵌入"
+    echo "  esmc_600m  - ESMC-600m编码器（1152维，2024-12）"
     echo ""
     echo "编码器类型详细信息："
     echo "  standard   - 标准蛋白质编码器（默认）"
@@ -491,12 +485,11 @@ show_help() {
     echo "  pep        - 肽编码器（用于小肽相互作用）"
     echo ""
     echo "使用示例："
-    echo "  $0                            # 运行所有实验（5x7x3x3 = 315）"
-    echo "  $0 --dataset SHS27k           # 运行SHS27k的所有编码器和分割"
-    echo "  $0 --encoder esm3_small --split bfs  # 运行ESM3-small使用BFS分割"
-    echo "  $0 --encoder esm2_3b --dataset Arabidopsis  # 运行ESM2-3B在Arabidopsis上"
+    echo "  $0                            # 运行所有实验"
+    echo "  $0 --dataset SHS27k           # 运行SHS27k的所有分割"
+    echo "  $0 --split bfs                # 运行BFS分割"
     echo "  $0 --encoder-type lrr         # 运行所有LRR实验"
-    echo "  $0 --dataset SHS27k --encoder-type lrr --encoder esmc_300m  # 特定LRR配置"
+    echo "  $0 --dataset SHS27k --encoder-type lrr --split dfs  # 特定配置"
     echo ""
 }
 

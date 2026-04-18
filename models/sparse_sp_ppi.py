@@ -1,5 +1,5 @@
 """
-Fixed Integrated HIGH-PPI Model with ProteinGIN and Gradient Checkpointing
+Sparse-SP-PPI Model with ProteinGIN and Gradient Checkpointing
 With normalized LRR weights (sum to 1)
 Optimized for CUDA memory issues
 """
@@ -19,9 +19,9 @@ from dgl.nn.pytorch import GraphConv, GATConv, HeteroGraphConv
 # # Disable PyTorch internal threading to avoid GIL issues with DGL batching
 # torch.set_num_threads(1)
 
-# Import collate function - will try to import from customer_dataloader, fallback to simple implementation
+# Import collate function - will try to import from dataloader, fallback to simple implementation
 try:
-    from models.customer_dataloader import collate_protein_graphs
+    from models.dataloader import collate_protein_graphs
 except ImportError:
     # Simple fallback implementation
     def collate_protein_graphs(samples):
@@ -29,7 +29,7 @@ except ImportError:
 #         return dgl.batch(samples)
 
 
-class LRRTrainableEncoder(nn.Module):
+class SparseEdgeAttentionEncoder(nn.Module):
     """
     动态 Relation Attention 版本
     接口完全兼容旧版
@@ -225,7 +225,7 @@ class LRRTrainableEncoder(nn.Module):
         示例：
             # 在每个 epoch 开始时调用
             for epoch in range(num_epochs):
-                model.lrr_encoder.reset_alpha_stats()
+                model.sparse_edge_attention_encoder.reset_alpha_stats()
                 # ... 训练代码 ...
         """
         self.cumulative_alpha = {etype: 0.0 for etype in self.edge_types}
@@ -234,12 +234,12 @@ class LRRTrainableEncoder(nn.Module):
         print(f"[LRRDEBUG] Alpha stats reset")
 
 
-# class LRRTrainableEncoder(nn.Module):
+# class SparseEdgeAttentionEncoder(nn.Module):
 #     """
 #     可训练的LRR编码器，直接使用可训练权重（无归一化）
 #     """
 #     def __init__(self, config):
-#         super(LRRTrainableEncoder, self).__init__()
+#         super(SparseEdgeAttentionEncoder, self).__init__()
 
 #         # 可训练的原始权重参数（直接作为权重使用，不归一化）
 #         # 注意：这些初始值现在就是实际的权重值，而非 logits
@@ -378,12 +378,12 @@ class LRRTrainableEncoder(nn.Module):
 #             else:
 #                 raise e
 
-# class LRRTrainableEncoder(nn.Module):
+# class SparseEdgeAttentionEncoder(nn.Module):
 #     """
 #     可训练的LRR编码器，权重归一化（总和为1）
 #     """
 #     def __init__(self, config):
-#         super(LRRTrainableEncoder, self).__init__()
+#         super(SparseEdgeAttentionEncoder, self).__init__()
 
 #         # 可训练的原始权重参数（使用Logits）
 #         # 所有边类型初始权重均等，让模型从零开始学习各自的 importance
@@ -521,7 +521,7 @@ class ProteinGINModelSimple(nn.Module):
         self.output_dim = config["output_dim"]
 
         # LRR编码器（可训练，权重归一化）
-        self.lrr_encoder = LRRTrainableEncoder(config)
+        self.sparse_edge_attention_encoder = SparseEdgeAttentionEncoder(config)
 
         print(f"ProteinGINModelSimple initialized:")
         print(f"  Input dim: {self.input_dim}")
@@ -531,7 +531,7 @@ class ProteinGINModelSimple(nn.Module):
         print(f"  Output dim: {self.output_dim}")
 
         # 打印初始权重
-        initial_weights = self.lrr_encoder.get_weights()
+        initial_weights = self.sparse_edge_attention_encoder.get_weights()
         print(f"  Initial normalized LRR weights:")
         total_weight = 0.0
         for name, weight in initial_weights.items():
@@ -634,7 +634,7 @@ class ProteinGINModelSimple(nn.Module):
 
     def get_weights(self):
         """获取当前LRR权重值"""
-        return self.lrr_encoder.get_weights()
+        return self.sparse_edge_attention_encoder.get_weights()
 
     def _graph_pooling(self, graph, node_embeds):
         """图级别池化"""
@@ -702,7 +702,7 @@ class ProteinGINModelSimple(nn.Module):
                         node_features.requires_grad_(True)
 
                     # 一次性编码整个批次
-                    node_embeds = self.lrr_encoder(batch_graph, node_features)
+                    node_embeds = self.sparse_edge_attention_encoder(batch_graph, node_features)
 
                     # 批量池化得到图嵌入
                     batch_graph_embeds = self._graph_pooling(batch_graph, node_embeds)
@@ -731,7 +731,7 @@ class ProteinGINModelSimple(nn.Module):
                             node_features_cpu = graph_cpu.ndata["x"].cpu()
 
                             with torch.no_grad():
-                                node_embeds_cpu = self.lrr_encoder(
+                                node_embeds_cpu = self.sparse_edge_attention_encoder(
                                     graph_cpu, node_features_cpu
                                 )
 
@@ -775,7 +775,7 @@ class ProteinGINModelSimple(nn.Module):
 
     def _encode_single_step(self, graph, node_features):
         """用于检查点的单步编码函数"""
-        return self.lrr_encoder(graph, node_features)
+        return self.sparse_edge_attention_encoder(graph, node_features)
 
     def _encode_proteins_single(self, graph, graph_type):
         """编码单个蛋白质图"""
@@ -787,7 +787,7 @@ class ProteinGINModelSimple(nn.Module):
         node_features = graph.ndata["x"]
 
         # 直接调用编码器（保持梯度流）
-        node_embeds = self.lrr_encoder(graph, node_features)
+        node_embeds = self.sparse_edge_attention_encoder(graph, node_features)
 
         # 图级别嵌入：平均池化
         graph_embed = self._graph_pooling(graph, node_embeds)
@@ -943,7 +943,7 @@ class ProteinGINModelSimple(nn.Module):
                 # 删除此行：node_features.requires_grad_(True)
 
                 # 编码（保留梯度，计算图在 GPU 上）
-                node_embeds = self.lrr_encoder(graph, node_features)
+                node_embeds = self.sparse_edge_attention_encoder(graph, node_features)
                 graph_embed = self._graph_pooling(graph, node_embeds)
                 batch_embeds.append(graph_embed)
 
@@ -986,8 +986,8 @@ class ProteinGINModelSimple(nn.Module):
         loss = loss_fn(output, sample_labels)
 
         # 正则化已移除：让 LRR 权重自由学习
-        # if lrr_weight_reg > 0 and hasattr(self.lrr_encoder, 'last_alpha'):
-        #     current_weights = self.lrr_encoder.last_alpha
+        # if lrr_weight_reg > 0 and hasattr(self.sparse_edge_attention_encoder, 'last_alpha'):
+        #     current_weights = self.sparse_edge_attention_encoder.last_alpha
         #     if current_weights and 'LRR_REGION' in current_weights:
         #         lrr_weight = current_weights['LRR_REGION']
         #         target_weight = 0.4

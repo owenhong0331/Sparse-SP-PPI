@@ -35,7 +35,7 @@ class ProteinGraphBuilder:
         self.surface_distance = config.get('surface_distance', 8.0)
         
         # Encoding configuration
-        self.encoding_type = config.get('encoding_type', 'mape')
+        self.encoding_type = config.get('encoding_type', 'precomputed')
         self.encoding_config = config.get('encoding_config', {})
         
         # Initialize encoder (delay initialization for precomputed encoders)
