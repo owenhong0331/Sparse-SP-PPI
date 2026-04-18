@@ -197,6 +197,57 @@ The system computes comprehensive evaluation metrics:
 - Per-class metrics
 - Confusion matrix
 
+## Data Availability
+
+The datasets used in this project are available on Zenodo: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX)
+
+### Downloaded Archives
+
+| Archive | Description | Size |
+|---------|-------------|------|
+| `Sparse-SP-PPI_esmc_embeddings.zip` | ESMC-600M protein embeddings (.npy) for SHS27k, SHS148k, STRING, SYS30k, SYS60k | ~66.5 GB |
+| `Sparse-SP-PPI_pdb_structures.zip` | AlphaFold2 PDB structures (Human + Yeast) | ~175 MB |
+| `Sparse-SP-PPI_processed_data.zip` | Preprocessed graph data for SHS27k, SHS148k, STRING | ~5.3 GB |
+| `Sparse-SP-PPI_raw_data.zip` | PPI interaction files and sequence dictionaries | ~313 MB |
+
+### Setup Instructions
+
+1. Download all archives from Zenodo
+2. Extract to your project directory:
+
+```bash
+# ESMC embeddings → embedding directory
+unzip Sparse-SP-PPI_esmc_embeddings.zip -d embedding/esmc-600m-2024-12/
+
+# PDB structures → data directory
+unzip Sparse-SP-PPI_pdb_structures.zip -d data/all_pdbs/
+
+# Processed data → data directory
+unzip Sparse-SP-PPI_processed_data.zip -d data/
+
+# Raw data → data/raw_data/
+unzip Sparse-SP-PPI_raw_data.zip -d data/raw_data/
+```
+
+3. Expected directory structure after extraction:
+
+```
+Sparse-SP-PPI/
+├── embedding/
+│   └── esmc-600m-2024-12/
+│       ├── SHS27k/     (*.npy)
+│       ├── SHS148k/    (*.npy)
+│       ├── STRING/     (*.npy)
+│       ├── SYS30k/     (*.npy)
+│       └── SYS60k/     (*.npy)
+├── data/
+│   ├── all_pdbs/       (*.pdb, Human + Yeast)
+│   ├── processed_data_SHS27k/
+│   ├── processed_data_SHS148k/
+│   ├── processed_data_STRING/
+│   └── raw_data/       (*.txt, *.tsv)
+```
+
 ## Citation
 
 ```bibtex
