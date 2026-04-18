@@ -1,0 +1,216 @@
+# Sparse-SP-PPI
+
+Sparse-SP-PPI: Sparse Structure-aware Protein-Protein Interaction Prediction via Hierarchical Graph Neural Network with Learnable LRR Attention.
+
+## Overview
+
+Sparse-SP-PPI is a hierarchical heterogeneous graph neural network for protein-protein interaction (PPI) prediction. The system implements a two-level architecture:
+
+- **Protein-level (Bottom View)**: Each protein is modeled as a heterogeneous graph with amino acids as nodes. Multiple edge types capture structural and sequence relationships, including sequence adjacency (SEQ), spatial distance (STR_DIS), spatial K-nearest neighbors (STR_KNN), surface accessibility (SURF), and LRR region connectivity (LRR_REGION).
+- **PPI-level (Top View)**: A protein-protein interaction network where proteins are nodes and interactions are edges. Graph convolution layers propagate information across the interaction network.
+
+The key innovation is the **LRRTrainableEncoder**, which learns attention-weighted aggregation across different edge types, with special emphasis on Leucine-Rich Repeat (LRR) domain regions that are critical for plant immune receptor interactions.
+
+## Architecture
+
+### Model: ProteinGINModelSimple
+
+```
+Protein Graph → LRRTrainableEncoder (attention-weighted edge aggregation)
+             → Mean Pooling → Protein Embedding
+                                              ↓
+PPI Network  → GraphConv Layers → Interaction Prediction Head
+```
+
+**LRRTrainableEncoder**:
+- Processes 5 edge types: SEQ, STR_KNN, STR_DIS, SURF, LRR_REGION
+- Learns relation-specific attention scores via MLP
+- Applies temperature-scaled softmax with attention bias
+- Supports periodic gradient updates for LRR attention weights
+
+### Supported Encodings
+
+| Encoding | Description | Dimension |
+|----------|-------------|-----------|
+| MAPE | Physicochemical features (7-dim) | 7 |
+| ESM2 | ESM2-650M pre-trained embeddings | 1280 |
+| ESM2-3B | ESM2-3B pre-trained embeddings | 2560 |
+| ESM3-small | ESM3-small pre-trained embeddings | 768 |
+| ESMC-300M | ESMC-300M pre-trained embeddings | 768 |
+| ESMC-600M | ESMC-600M pre-trained embeddings | 1152 |
+| Precomputed | Custom .npy embedding files | Variable |
+
+## Project Structure
+
+```
+Sparse-SP-PPI/
+├── models/                           # Core model package
+│   ├── integrated_high_ppi_simple.py # Main model (ProteinGINModelSimple, LRRTrainableEncoder)
+│   ├── customer_dataloader.py        # Data loading and graph construction
+│   ├── edge_construction.py          # Edge type builders (SEQ, STR_KNN, STR_DIS, SURF)
+│   ├── node_encoding.py              # Node feature encoders (MAPE, ESM2, Precomputed, OneHot)
+│   ├── protein_graph_builder.py      # Graph construction strategies
+│   ├── lrr_parser.py                 # LRR annotation parser
+│   ├── lrr_extractor.py              # LRR node embedding extraction
+│   ├── metrics.py                    # Evaluation metrics (Acc, Prec, Rec, F1, AUC-ROC, AUPR)
+│   ├── logger.py                     # TensorBoard + text logging
+│   └── checkpoint.py                 # Model checkpoint management
+├── scripts/                          # Training and inference scripts
+│   ├── customer_train.py             # Main training script
+│   ├── customer_inference.py         # Inference script
+│   ├── train_sparse_sp_ppi_experiments.sh  # Batch training experiments
+│   ├── infer_sparse_sp_ppi_experiments.sh  # Batch inference experiments
+│   ├── run_cross_dataset_inference.sh      # Cross-dataset inference
+│   ├── batch_csv_to_fasta.sh               # CSV to FASTA conversion
+│   ├── batch_generate_esm_embeddings.sh    # ESM embedding generation
+│   ├── example_usage.sh                    # Usage examples
+│   └── test.sh                             # Quick test script
+├── configs/                          # JSON configuration files
+│   └── precomputed_esmc_600m_lrr_*.json   # ESMC-600M LRR configs per dataset
+├── lrr_annotation/                   # LRR annotation generation tools
+│   ├── geom_lrr/                     # Core geometry analysis module
+│   │   ├── loader.py                 # PDB loading and CA atom extraction
+│   │   ├── analyzer.py               # Winding number computation and LRR detection
+│   │   └── plotter.py                # Regression visualization
+│   ├── extract_lrr_sequences.py      # LRR sequence extraction
+│   ├── generate_lrr_annotations.py   # Main annotation generation script
+│   └── parse_lrr_annotation.py       # Convert annotations to FASTA
+├── lrr/                              # LRR annotation data
+│   └── lrr_annotation_results.txt    # Pre-generated LRR annotations
+├── process_data.sh                   # Consolidated data processing pipeline
+└── requirements.txt                  # Python dependencies
+```
+
+## Installation
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Optional: ESM2 support
+pip install fair-esm
+
+# Optional: ESMC support
+pip install esm-c
+```
+
+## Data Preparation
+
+### Data Requirements
+
+```
+data/
+├── processed_data/
+│   ├── protein.actions.<DATASET>.txt       # PPI interactions
+│   └── protein.<DATASET>.sequences.dictionary.csv  # Protein sequences
+├── pdbs/                                    # PDB structure files (AlphaFold2)
+└── embedding/                               # Precomputed embeddings (optional)
+    └── esmc-600m-2024-12/<DATASET>/        # Per-dataset embedding files
+```
+
+### PPI Interaction File Format
+
+Tab-separated file with columns: `protein1 \t protein2 \t interaction_type`
+
+### Running the Data Processing Pipeline
+
+```bash
+# Full pipeline: LRR annotation + FASTA conversion + embedding generation
+bash process_data.sh \
+    --pdb_dir /path/to/pdb_files \
+    --seq_file /path/to/sequences.csv \
+    --dataset SHS27k \
+    --embedding_model esmc_600m
+
+# Skip specific steps
+bash process_data.sh --pdb_dir /path/to/pdbs --skip_fasta --skip_embedding
+```
+
+### Generating LRR Annotations
+
+LRR annotations are generated from PDB structure files using the geometric analysis pipeline in `lrr_annotation/`:
+
+```bash
+cd lrr_annotation
+python generate_lrr_annotations.py /path/to/pdb_dir -o lrr_annotation_results.txt
+```
+
+This computes winding numbers via parallel transport along the protein backbone, then detects LRR regions through piecewise linear regression.
+
+## Training
+
+```bash
+# Basic training with MAPE encoding
+python scripts/customer_train.py \
+    --ppi_file data/processed_data/protein.actions.SHS27k.txt \
+    --protein_seq_file data/processed_data/protein.SHS27k.sequences.dictionary.csv \
+    --pdb_dir data/pdbs \
+    --config configs/precomputed_esmc_600m_lrr_shs27k.json \
+    --encoding_type precomputed \
+    --experiment_name my_experiment
+
+# Batch training with multiple configurations
+bash scripts/train_sparse_sp_ppi_experiments.sh \
+    --dataset SHS27k \
+    --encoder esmc_600m \
+    --encoder-type lrr \
+    --split random
+```
+
+## Inference
+
+```bash
+# Predict all interactions
+python scripts/customer_inference.py \
+    --checkpoint logs/my_experiment/checkpoints/best_model.pth \
+    --ppi_file data/processed_data/protein.actions.SHS27k.txt \
+    --protein_seq_file data/processed_data/protein.SHS27k.sequences.dictionary.csv \
+    --pdb_dir data/pdbs \
+    --mode all \
+    --output predictions.csv
+
+# Predict specific protein pair
+python scripts/customer_inference.py \
+    --checkpoint logs/my_experiment/checkpoints/best_model.pth \
+    --ppi_file data/processed_data/protein.actions.SHS27k.txt \
+    --protein_seq_file data/processed_data/protein.SHS27k.sequences.dictionary.csv \
+    --pdb_dir data/pdbs \
+    --mode single \
+    --protein1 0 --protein2 5 \
+    --output prediction.json
+
+# Cross-dataset inference
+bash scripts/run_cross_dataset_inference.sh
+```
+
+## Configuration
+
+Configuration files use JSON with the following sections:
+
+| Section | Description |
+|---------|-------------|
+| `model` | Architecture parameters (dimensions, layers, dropout, attention) |
+| `encoding` | Node encoding settings (type, embedding_dir, LRR config) |
+| `edge_construction` | Graph edge parameters (thresholds, KNN, LRR edges) |
+| `training` | Hyperparameters (epochs, batch_size, learning_rate, LRR-specific LR) |
+| `data_split` | Split strategy (random/bfs/dfs, ratios) |
+| `logging` | Experiment logging (directory, checkpoint frequency, selection metric) |
+
+## Evaluation Metrics
+
+The system computes comprehensive evaluation metrics:
+- Accuracy, Precision, Recall, F1 (micro/macro/weighted)
+- AUC-ROC, AUPR (micro/macro)
+- Per-class metrics
+- Confusion matrix
+
+## Citation
+
+```bibtex
+@article{sparse_sp_ppi,
+  title={Sparse-SP-PPI: Sparse Structure-aware Protein-Protein Interaction Prediction via Hierarchical Graph Neural Network with Learnable LRR Attention},
+  author={},
+  journal={},
+  year={2026}
+}
+```

@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data & cache
+data/
+graphcache/
+all_pdbs/
+*.pdb
+*.npy
+*.pickle
+
+# Logs & results
+logs/
+results/
+*.log
+
+# ESM model weights/cache
+esm3_models/
+
+# mamp-ml (external, not part of this repo)
+mamp-ml/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+envir.yaml
+env/
+.venv/
+
+# Backup files
+*.bak
+*_bk/
+*_backup/

@@ -1,0 +1,70 @@
+{
+  "model": {
+    "input_dim": 1152,
+    "prot_hidden_dim": 1152,
+    "ppi_hidden_dim": 1152,
+    "prot_num_layers": 4,
+    "ppi_num_layers": 2,
+    "output_dim": 8,
+    "dropout_ratio": 0.1,
+    "use_attention": true,
+    "num_heads": 4
+  },
+  
+  "encoding": {
+    "encoding_type": "precomputed",
+    "embedding_dir": "../embedding/esmc-600m-2024-12/rice",
+    "validate_dims": false,
+    
+    "peptide_encoder_enabled": false,
+    "peptide_length_threshold": 50,
+    
+    "lrr_encoder_enabled": true,
+    "lrr_annotation_file": "./lrr/lrr_annotation_results.txt"
+  },
+  
+  "edge_construction": {
+    "spatial_threshold": 10.0,
+    "knn_k": 5,
+    "surface_threshold": 0.2,
+    "surface_distance": 8.0,
+    
+    "lrr_edge_type": "LRR_REGION",
+    "lrr_connect_all": true
+  },
+  
+  "ppi_network": {
+    "heterogeneous_ppi": true,
+    "peptide_node_type": "peptide",
+    "protein_node_type": "protein",
+    "lrr_node_type": "LRR_protein"
+  },
+  
+  "training": {
+    "max_epochs": 500,
+    "batch_size": 8000,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0005,
+    "scheduler_patience": 10,
+    "early_stopping_patience": 500 
+  },
+  
+  "data_split": {
+    "split_mode": "random",
+    "train_ratio": 0.6,
+    "val_ratio": 0.2,
+    "test_ratio": 0.2
+  },
+  
+  "logging": {
+    "log_dir": "../logs",
+    "experiment_name": "sparse_sp_ppi_esmc_600m_lrr_rice",
+    "save_every": 10,
+    "max_checkpoints": 5,
+    "selection_metric": "f1_micro"
+  },
+  
+  "other": {
+    "seed": 42
+  }
+}
