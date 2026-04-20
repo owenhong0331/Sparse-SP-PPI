@@ -199,20 +199,34 @@ The system computes comprehensive evaluation metrics:
 
 ## Data Availability
 
-The datasets used in this project are available on Zenodo: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX)
+The datasets used in this project are available on HuggingFace: [owenhong0331/Sparse-SP-PPI](https://huggingface.co/datasets/owenhong0331/Sparse-SP-PPI)
 
 ### Downloaded Archives
 
 | Archive | Description | Size |
 |---------|-------------|------|
-| `Sparse-SP-PPI_esmc_embeddings.zip` | ESMC-600M protein embeddings (.npy) for SHS27k, SHS148k, STRING, SYS30k, SYS60k | ~66.5 GB |
-| `Sparse-SP-PPI_pdb_structures.zip` | AlphaFold2 PDB structures (Human + Yeast) | ~175 MB |
-| `Sparse-SP-PPI_processed_data.zip` | Preprocessed graph data for SHS27k, SHS148k, STRING | ~5.3 GB |
-| `Sparse-SP-PPI_raw_data.zip` | PPI interaction files and sequence dictionaries | ~313 MB |
+| `Sparse-SP-PPI_esmc_embeddings.zip` | ESMC-600M protein embeddings (.npy) for SHS27k, SHS148k, STRING, SYS30k, SYS60k | ~60 GB |
+| `Sparse-SP-PPI_pdb_structures.zip` | AlphaFold2 PDB structures (Human + Yeast) | ~1.7 GB |
+| `Sparse-SP-PPI_processed_data.zip` | Preprocessed graph data for SHS27k, SHS148k, STRING | ~1.3 GB |
+| `Sparse-SP-PPI_raw_data.zip` | PPI interaction files and sequence dictionaries | ~31 MB |
 
 ### Setup Instructions
 
-1. Download all archives from Zenodo
+1. Download data from HuggingFace:
+
+```bash
+# Option A: Download all files
+pip install huggingface_hub
+huggingface-cli download owenhong0331/Sparse-SP-PPI --repo-type dataset --local-dir ./data_download
+
+# Option B: Download specific files
+huggingface-cli download owenhong0331/Sparse-SP-PPI Sparse-SP-PPI_raw_data.zip --repo-type dataset --local-dir .
+
+# Option C: Using git clone (requires git-lfs)
+git lfs install
+git clone https://huggingface.co/datasets/owenhong0331/Sparse-SP-PPI ./data_download
+```
+
 2. Extract to your project directory:
 
 ```bash
@@ -247,6 +261,8 @@ Sparse-SP-PPI/
 │   ├── processed_data_STRING/
 │   └── raw_data/       (*.txt, *.tsv)
 ```
+
+> **Note:** ESMC-600M embeddings can also be generated from scratch using the provided pipeline: `bash scripts/batch_generate_esm_embeddings.sh --dataset SHS27k`
 
 ## Citation
 
