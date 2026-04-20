@@ -266,11 +266,36 @@ Sparse-SP-PPI/
 
 ## Citation
 
+If you use this code or dataset in your research, please cite:
+
+**Paper:**
 ```bibtex
 @article{sparse_sp_ppi,
   title={Sparse-SP-PPI: Sparse Structure-aware Protein-Protein Interaction Prediction via Hierarchical Graph Neural Network with Learnable LRR Attention},
-  author={},
+  author={Hong, Weihao},
   journal={},
   year={2026}
+}
+```
+
+**Code:**
+```bibtex
+@misc{sparse_sp_ppi_code,
+  title={Sparse-SP-PPI},
+  author={Hong, Weihao},
+  year={2026},
+  publisher={GitHub},
+  howpublished={\url{https://github.com/owenhong0331/Sparse-SP-PPI}}
+}
+```
+
+**Dataset:**
+```bibtex
+@misc{sparse_sp_ppi_data,
+  title={Sparse-SP-PPI Dataset},
+  author={Hong, Weihao},
+  year={2026},
+  publisher={HuggingFace},
+  howpublished={\url{https://huggingface.co/datasets/owenhong0331/Sparse-SP-PPI}}
 }
 ```
